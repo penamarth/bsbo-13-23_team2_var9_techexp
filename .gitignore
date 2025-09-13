@@ -1,1 +1,7 @@
 .obsidian/
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.log
