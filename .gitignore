@@ -1,6 +1,7 @@
 .obsidian/
 bin/
 obj/
+.vs/
 *.user
 *.suo
 *.cache
