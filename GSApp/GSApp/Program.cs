@@ -9,10 +9,10 @@ class Applicant
     public string Email { get; set; }
     public string Phone { get; set; }
 
-    public Application SubmitApplication(ApplicationData data)
+    public Application PrepareApplication(ApplicationData data)
     {
         var app = new Application(this.Id, data);
-        app.Submit();
+        app.ChangeStatusToSubmitted();
         Console.WriteLine($"Соискатель {Fio} подал заявку '{data.Title}'");
         return app;
     }
@@ -92,7 +92,7 @@ class Application
         Data = data;
     }
 
-    public void Submit() => Status = "Подана";
+    public void ChangeStatusToSubmitted() => Status = "Подана";
     public void Edit(ApplicationData data) { if (Status == "Черновик") Data = data; }
     public void Withdraw() => Status = "Отозвана";
     public void AttachEvaluation(Evaluation ev) { Evaluations.Add(ev); Status = "На проверке"; }
@@ -193,9 +193,9 @@ class GrantSystemService
     public List<IEvaluator> AllExperts { get; } = new();
     public List<Application> Applications { get; } = new();
 
-    public Application SubmitApplication(Applicant applicant, ApplicationData data)
+    public Application ArchiveApplication(Applicant applicant, ApplicationData data)
     {
-        var app = applicant.SubmitApplication(data);
+        var app = applicant.PrepareApplication(data);
         Applications.Add(app);
         return app;
     }
@@ -246,7 +246,7 @@ class Program
         var applicant = new Applicant { Fio = "Иван Петров", Email = "ivan@example.com" };
         var data = new ApplicationData { Title = "[Bio] Проект исследования молекулярных часов", Description = "Исследование", RequestedAmount = 50000 };
 
-        var app = service.SubmitApplication(applicant, data);
+        var app = service.ArchiveApplication(applicant, data);
 
         var selected = service.AssignExperts(app);
         service.StartEvaluation(app, selected[0]);
