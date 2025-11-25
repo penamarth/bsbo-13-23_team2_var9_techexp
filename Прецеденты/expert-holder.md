@@ -1,39 +1,42 @@
 ```plantuml
 @startuml
+autonumber
 
-actor "Независимый эксперт" as Expert
-actor "Держатель фонда" as FundHolder
+actor "Заявитель" as Applicant
+actor "Независимый эксперт (цепочка)" as Expert
+actor "Держатель фонда" as Founder
 
-Expert -> System : login()
-activate System
+participant "GrantSystemService" as Service
+participant "Application" as App
+participant "IEvaluator" as Evaluator
+participant "Evaluation" as Evaluation
+participant "Decision" as Decision
 
-Expert -> System : selectApplication(appID)
-System -> Application : getApplication(appID)
-activate Application
-System <- Application : applicationData
-deactivate Application
+== Подача заявки ==
+Applicant -> Service : SubmitApplication(data)
+Service -> Applicant : SubmitApplication()
+Applicant -> App : new Application(data)
+Service <- App : application instance
 
-Expert -> System : startReport()
-System -> Report : create()
-activate Report
+== Назначение экспертов ==
+Service -> Service : AssignExperts(app)\n(выбор по стратегии)
+Service -> Evaluator : SetNext(...) *(цепочка)*
 
-loop filling report
-    Expert -> System : addEvaluation(criterion, value)
-    System -> Report : addEvaluation(criterion, value)
+== Оценивание ==
+Service -> Evaluator : StartEvaluation(app)
+loop пока в цепочке есть следующий эксперт
+    Evaluator -> Evaluator : Evaluate(app)
+    Evaluator -> Evaluation : new Evaluation(score)
+    Evaluator -> App : AttachEvaluation(evaluation)
+    Evaluator -> Evaluator : next.Evaluate(app)
 end
 
-Expert -> System : finalizeReport()
-System -> Report : finalize()
-deactivate Report
-
-System -> GrantFund : saveReport(report)
-activate GrantFund
-GrantFund -> FundHolder : sendReport(report)
-deactivate GrantFund
-
-
+== Решение фонда ==
+Founder -> Service : MakeDecision(app, result, grantAmount)
+Service -> Founder : MakeDecision()
+Founder -> Decision : new Decision(...)
+Founder -> App : AttachDecision(decision)
 
 @enduml
 
 ```
-   ~~FundHolder <- GrantFund : reportReceived~~
