@@ -1,0 +1,40 @@
+
+@startuml
+title Принятие решения держателем фонда
+
+actor "Program\n(Main)" as program
+participant "GrantSystemService" as service
+participant "Founder" as founder
+participant "Application" as app
+participant "Decision" as dec
+
+activate program
+
+program -> service: MakeDecision(app, founder, result, grantAmount)
+activate service
+
+service -> founder: MakeDecision(app, result, grantAmount)
+activate founder
+
+founder -> founder: var dec = new Decision { Result = result,\n GrantAmount = grantAmount,\n Report = $"Решение от: {Fio}" }
+create dec
+founder -> dec: new Decision{...}
+dec --> founder: decision (dec)
+
+founder -> app: AttachDecision(dec)
+activate app
+app -> app: Decision = dec
+app -> app: Status = "Решение принято"
+app --> founder
+deactivate app
+
+founder -> founder: Console.WriteLine($"Держатель фонда {Fio} принял решение '{result}'...")
+founder --> service
+deactivate founder
+
+service --> program
+deactivate service
+
+deactivate program
+
+@enduml
