@@ -9,10 +9,10 @@ class Applicant
     public string Email { get; set; }
     public string Phone { get; set; }
 
-    public Application SubmitApplication(ApplicationData data)
+    public Application PrepareApplication(ApplicationData data)
     {
         var app = new Application(this.Id, data);
-        app.Submit();
+        app.ChangeStatusToSubmitted();
         Console.WriteLine($"Соискатель {Fio} подал заявку '{data.Title}'");
         return app;
     }
@@ -92,7 +92,7 @@ class Application
         Data = data;
     }
 
-    public void Submit() => Status = "Подана";
+    public void ChangeStatusToSubmitted() => Status = "Подана";
     public void Edit(ApplicationData data) { if (Status == "Черновик") Data = data; }
     public void Withdraw() => Status = "Отозвана";
     public void AttachEvaluation(Evaluation ev) { Evaluations.Add(ev); Status = "На проверке"; }
@@ -195,7 +195,7 @@ class GrantSystemService
 
     public Application SubmitApplication(Applicant applicant, ApplicationData data)
     {
-        var app = applicant.SubmitApplication(data);
+        var app = applicant.PrepareApplication(data);
         Applications.Add(app);
         return app;
     }
