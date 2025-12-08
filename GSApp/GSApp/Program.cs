@@ -193,7 +193,7 @@ class GrantSystemService
     public List<IEvaluator> AllExperts { get; } = new();
     public List<Application> Applications { get; } = new();
 
-    public Application ArchiveApplication(Applicant applicant, ApplicationData data)
+    public Application SubmitApplication(Applicant applicant, ApplicationData data)
     {
         var app = applicant.PrepareApplication(data);
         Applications.Add(app);
@@ -246,7 +246,7 @@ class Program
         var applicant = new Applicant { Fio = "Иван Петров", Email = "ivan@example.com" };
         var data = new ApplicationData { Title = "[Bio] Проект исследования молекулярных часов", Description = "Исследование", RequestedAmount = 50000 };
 
-        var app = service.ArchiveApplication(applicant, data);
+        var app = service.SubmitApplication(applicant, data);
 
         var selected = service.AssignExperts(app);
         service.StartEvaluation(app, selected[0]);
