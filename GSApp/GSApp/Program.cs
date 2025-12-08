@@ -1,7 +1,5 @@
 ﻿using System;
 
-// Домен
-
 class Applicant
 {
     public Guid Id { get; } = Guid.NewGuid();
@@ -9,16 +7,15 @@ class Applicant
     public string Email { get; set; }
     public string Phone { get; set; }
 
-    public Application SubmitApplication(ApplicationData data)
+    public Application PrepareApplication(ApplicationData data)
     {
         var app = new Application(this.Id, data);
-        app.Submit();
+        app.ChangeStatusToSubmitted();
         Console.WriteLine($"Соискатель {Fio} подал заявку '{data.Title}'");
         return app;
     }
 }
 
-// Цепочка обязанностей
 interface IEvaluator
 {
     void SetNext(IEvaluator next);
@@ -42,7 +39,7 @@ class Expert : IEvaluator
         var eval = new Evaluation(app.Id, this.Id, score, $"Оценка от: {Fio}");
         app.AttachEvaluation(eval);
 
-        Console.WriteLine($"Эксперт {Fio} оценил заявку '{app.Data.Title}'. Оценка - {score}");
+        Console.WriteLine($"Эксперт {Fio} оценил заявку '{app.Data.Title}'. Оценка = {score}");
 
         next?.Evaluate(app);
     }
@@ -52,11 +49,11 @@ class SpecificExpertN : Expert
 {
     public override void Evaluate(Application app)
     {
-        int score = new Random().Next(5, 11); // более высокая оценка
-        var eval = new Evaluation(app.Id, this.Id, score, $"Конкретный эксперт {Fio}");
+        var score = new Random().Next(5, 11);
+        var eval = new Evaluation(app.Id, this.Id, score, $"Эксперт высокого уровня: {Fio}");
         app.AttachEvaluation(eval);
 
-        Console.WriteLine($"КонкретныйЭксперт {Fio} оценил '{app.Data.Title}'. Оценка - {score}");
+        Console.WriteLine($"SpecificExpert {Fio} оценил '{app.Data.Title}'. Оценка = {score}");
 
         next?.Evaluate(app);
     }
@@ -67,11 +64,21 @@ class Founder
     public Guid Id { get; } = Guid.NewGuid();
     public string Fio { get; set; }
 
-    public void MakeDecision(Application app, string result, decimal grantAmount)
+    public GrantDecision MakeDecision(Application app, string result, decimal grantAmount)
     {
-        var dec = new Decision { Result = result, GrantAmount = grantAmount, Report = $"Решение от: {Fio}" };
+        var dec = new GrantDecision
+        {
+            Title = $"Решение по заявке {app.Id}",
+            Result = result,
+            GrantAmount = grantAmount,
+            Report = $"Решение от держателя фонда: {Fio}"
+        };
+
         app.AttachDecision(dec);
-        Console.WriteLine($"Держатель фонда {Fio} принял решение '{result}' по заявке '{app.Data.Title}'");
+
+        Console.WriteLine($"Держатель фонда {Fio} принял решение '{result}'");
+
+        return dec;
     }
 }
 
@@ -80,10 +87,10 @@ class Application
     public Guid Id { get; } = Guid.NewGuid();
     public Guid ApplicantId { get; }
     public ApplicationData Data { get; private set; }
+
     public string Status { get; private set; } = "Черновик";
 
-    public Grant Grant { get; set; }
-    public Decision Decision { get; private set; }
+    public GrantDecision Decision { get; private set; }
     public List<Evaluation> Evaluations { get; } = new();
 
     public Application(Guid applicantId, ApplicationData data)
@@ -92,19 +99,27 @@ class Application
         Data = data;
     }
 
-    public void Submit() => Status = "Подана";
+    public void ChangeStatusToSubmitted() => Status = "Подана";
     public void Edit(ApplicationData data) { if (Status == "Черновик") Data = data; }
     public void Withdraw() => Status = "Отозвана";
     public void AttachEvaluation(Evaluation ev) { Evaluations.Add(ev); Status = "На проверке"; }
-    public void AttachDecision(Decision dec) { Decision = dec; Status = "Решение принято"; }
+    public void AttachDecision(GrantDecision dec) { Decision = dec; Status = "Решение принято"; }
 }
 
-class Grant
+class ApplicationData
+{
+    public string Title { get; set; }
+    public string Description { get; set; }
+    public decimal RequestedAmount { get; set; }
+}
+
+class GrantDecision
 {
     public Guid Id { get; } = Guid.NewGuid();
     public string Title { get; set; }
-    public string Description { get; set; }
-    public decimal MaxAmount { get; set; }
+    public string Result { get; set; }
+    public decimal GrantAmount { get; set; }
+    public string Report { get; set; }
 }
 
 class Evaluation
@@ -124,46 +139,35 @@ class Evaluation
     }
 }
 
-class Decision
-{
-    public decimal GrantAmount { get; set; }
-    public string Result { get; set; }
-    public string Report { get; set; }
-}
 
-// Стратегия (выбор экспертов)
-// добавить на диаграмму
 interface IExpertSelectionStrategy
 {
     List<IEvaluator> Select(List<IEvaluator> allExperts, Application app);
 }
 
-// Стратегия 1 - по специализации
-// эксперты, чья специализация встречается в названии заявки.
 class BySpecializationStrategy : IExpertSelectionStrategy
 {
     public List<IEvaluator> Select(List<IEvaluator> allExperts, Application app)
     {
-        var list = new List<IEvaluator>();
+        var result = new List<IEvaluator>();
 
         foreach (var e in allExperts)
         {
             if (e is Expert ex &&
                 app.Data.Title.ToLower().Contains(ex.Specialization.ToLower()))
             {
-                list.Add(e);
+                result.Add(e);
             }
         }
 
-        if (list.Count == 0)
-            list.Add(allExperts[0]); // fallback (если ни один эксперт не подошёл, берём первого эксперта из списка всех)
+        if (result.Count == 0 && allExperts.Count > 0)
+            result.Add(allExperts[0]);
 
-        return list;
+        return result;
     }
 }
 
-// Фабрика
-// добавить на диаграмму
+
 interface IExpertFactory
 {
     IEvaluator CreateExpert(string fio, string specialization, string degree);
@@ -173,7 +177,6 @@ class ExpertFactory : IExpertFactory
 {
     public IEvaluator CreateExpert(string fio, string specialization, string degree)
     {
-        // бизнес-правило. если "PhD" => specific expert
         if (degree == "PhD")
             return new SpecificExpertN { Fio = fio, Specialization = specialization, Degree = degree };
 
@@ -181,22 +184,61 @@ class ExpertFactory : IExpertFactory
     }
 }
 
+interface IApplicationRepository
+{
+    void Save(Application app);
+    void Update(Application app);
+    void Delete(Application app);
+    Application FindById(Guid id);
+    List<Application> FindByStatus(string status);
+}
+
+interface IWorkersRepository
+{
+    void SaveExpert(Expert expert);
+    void SaveFounder(Founder founder);
+    Expert FindExpertById(Guid id);
+    Founder FindFounderById(Guid id);
+}
+
+interface IApplicantRepository
+{
+    void Save(Applicant applicant);
+    Applicant FindById(Guid id);
+}
+
+
 class GrantSystemService
 {
     private readonly IExpertSelectionStrategy strategy;
-
-    public GrantSystemService(IExpertSelectionStrategy strategy)
-    {
-        this.strategy = strategy;
-    }
+    private readonly IApplicationRepository appRepo;
+    private readonly IWorkersRepository workerRepo;
+    private readonly IApplicantRepository applicantRepo;
+    private readonly IExpertFactory expertFactory;
 
     public List<IEvaluator> AllExperts { get; } = new();
-    public List<Application> Applications { get; } = new();
 
-    public Application SubmitApplication(Applicant applicant, ApplicationData data)
+    public GrantSystemService(
+        IExpertSelectionStrategy strategy,
+        IApplicationRepository appRepo,
+        IWorkersRepository workerRepo,
+        IApplicantRepository applicantRepo,
+        IExpertFactory expertFactory)
     {
-        var app = applicant.SubmitApplication(data);
-        Applications.Add(app);
+        this.strategy = strategy;
+        this.appRepo = appRepo;
+        this.workerRepo = workerRepo;
+        this.applicantRepo = applicantRepo;
+        this.expertFactory = expertFactory;
+    }
+
+    public Application SubmitApplication(Guid applicantId, ApplicationData data)
+    {
+        var applicant = applicantRepo.FindById(applicantId);
+        var app = applicant.PrepareApplication(data);
+
+        appRepo.Save(app);
+
         return app;
     }
 
@@ -207,51 +249,118 @@ class GrantSystemService
         for (int i = 0; i < selected.Count - 1; i++)
             selected[i].SetNext(selected[i + 1]);
 
-        Console.WriteLine($"Эксперты назначены (по стратегии): {selected.Count}");
-
         return selected;
     }
 
-    public void StartEvaluation(Application app, IEvaluator first)
+    public void StartEvaluation(Guid applicationId, Guid expertId)
     {
-        first.Evaluate(app);
+        var app = appRepo.FindById(applicationId);
+        var expert = workerRepo.FindExpertById(expertId);
+
+        expert.Evaluate(app);
+
+        appRepo.Update(app);
     }
 
-    public void MakeDecision(Application app, Founder founder, string result, decimal grantAmount)
+    public GrantDecision MakeDecision(Guid applicationId, Guid founderId, string result, decimal amount)
     {
-        founder.MakeDecision(app, result, grantAmount);
+        var app = appRepo.FindById(applicationId);
+        var founder = workerRepo.FindFounderById(founderId);
+
+        var decision = founder.MakeDecision(app, result, amount);
+
+        appRepo.Update(app);
+
+        return decision;
     }
 }
-class ApplicationData
+
+class InMemoryApplicationRepository : IApplicationRepository
 {
-    public string Title { get; set; }
-    public string Description { get; set; }
-    public decimal RequestedAmount { get; set; }
+    private readonly List<Application> list = new();
+
+    public void Save(Application app) => list.Add(app);
+    public void Update(Application app) { }
+    public void Delete(Application app) => list.Remove(app);
+    public Application FindById(Guid id) => list.Find(x => x.Id == id);
+    public List<Application> FindByStatus(string status) =>
+        list.FindAll(x => x.Status == status);
 }
 
-// Пример использования
+class InMemoryWorkersRepository : IWorkersRepository
+{
+    private readonly List<Expert> experts = new();
+    private readonly List<Founder> founders = new();
+
+    public void SaveExpert(Expert expert) => experts.Add(expert);
+    public void SaveFounder(Founder founder) => founders.Add(founder);
+
+    public Expert FindExpertById(Guid id) => experts.Find(x => x.Id == id);
+    public Founder FindFounderById(Guid id) => founders.Find(x => x.Id == id);
+}
+
+class InMemoryApplicantRepository : IApplicantRepository
+{
+    private readonly List<Applicant> list = new();
+
+    public void Save(Applicant applicant) => list.Add(applicant);
+    public Applicant FindById(Guid id) => list.Find(x => x.Id == id);
+}
+
 class Program
 {
-    static void Main(string[] args)
+    static void Main()
     {
         var strategy = new BySpecializationStrategy();
         var factory = new ExpertFactory();
-        var service = new GrantSystemService(strategy);
 
-        // создаем экспертов (фабрика)
-        service.AllExperts.Add(factory.CreateExpert("к.б.н. Густаво", "bio", "PhD"));
-        service.AllExperts.Add(factory.CreateExpert("к.б.н. Джесси", "bio", "Master"));
-        service.AllExperts.Add(factory.CreateExpert("к.х.н. Уолтер", "chemistry", "PhD"));
+        var appRepo = new InMemoryApplicationRepository();
+        var workerRepo = new InMemoryWorkersRepository();
+        var applicantRepo = new InMemoryApplicantRepository();
 
-        var applicant = new Applicant { Fio = "Иван Петров", Email = "ivan@example.com" };
-        var data = new ApplicationData { Title = "[Bio] Проект исследования молекулярных часов", Description = "Исследование", RequestedAmount = 50000 };
+        var service = new GrantSystemService(
+            strategy,
+            appRepo,
+            workerRepo,
+            applicantRepo,
+            factory);
 
-        var app = service.SubmitApplication(applicant, data);
+        var applicant = new Applicant
+        {
+            Fio = "Иван Петров",
+            Email = "ivan@example.com"
+        };
+        applicantRepo.Save(applicant);
 
-        var selected = service.AssignExperts(app);
-        service.StartEvaluation(app, selected[0]);
+        var expert1 = (Expert)factory.CreateExpert("к.б.н. Густаво", "bio", "PhD");
+        var expert2 = (Expert)factory.CreateExpert("к.б.н. Джесси", "bio", "Master");
+        var expert3 = (Expert)factory.CreateExpert("к.х.н. Уолтер", "chemistry", "PhD");
+
+        workerRepo.SaveExpert(expert1);
+        workerRepo.SaveExpert(expert2);
+        workerRepo.SaveExpert(expert3);
 
         var founder = new Founder { Fio = "Хаус МД" };
-        service.MakeDecision(app, founder, "Одобрено", 40000);
+        workerRepo.SaveFounder(founder);
+
+        var data = new ApplicationData
+        {
+            Title = "[Bio] Исследование молекулярных механизмов сна",
+            Description = "Научный проект",
+            RequestedAmount = 100000
+        };
+
+        var app = service.SubmitApplication(applicant.Id, data);
+
+        service.AllExperts.Add(expert1);
+        service.AllExperts.Add(expert2);
+        service.AllExperts.Add(expert3);
+
+        var selected = service.AssignExperts(app);
+
+        // Console.WriteLine("\n--- Запуск цепочки экспертиз ---\n");
+        service.StartEvaluation(app.Id, ((Expert)selected[0]).Id);
+
+        service.MakeDecision(app.Id, founder.Id, "Одобрено", 75000);
     }
 }
