@@ -1,40 +1,44 @@
-
 @startuml
-title Принятие решения держателем фонда
+title Последовательность: принятие решения держателем фонда
 
-actor "Program\n(Main)" as program
-participant "GrantSystemService" as service
-participant "Founder" as founder
-participant "Application" as app
-participant "Decision" as dec
+' Актёр - реальный пользователь (человек)
+actor "Fund holder\n(пользователь)" as FH
 
-activate program
+' Системные участники
+participant "Program\n(UI Layer)" as Program
+participant "GrantSystemService\n(Application Layer)" as Service
+participant "FundHolder\n(класс домена)" as FundHolder
+participant "Application\n(домен)" as App
+participant "GrantDecision\n(домен)" as Dec
 
-program -> service: MakeDecision(app, founder, result, grantAmount)
-activate service
+' 1. Пользователь-держатель фонда инициирует операцию
+FH -> Program : выбрать заявку и ввести\nresult, grantAmount
 
-service -> founder: MakeDecision(app, result, grantAmount)
-activate founder
+' 2. UI вызывает приложение-сервис
+Program -> Service : MakeDecision(app, fundHolder, result, grantAmount)
 
-founder -> founder: var dec = new Decision { Result = result,\n GrantAmount = grantAmount,\n Report = $"Решение от: {Fio}" }
-create dec
-founder -> dec: new Decision{...}
-dec --> founder: decision (dec)
+' 3. Application Layer делегирует доменному объекту FundHolder
+Service -> FundHolder : MakeDecision(app, result, grantAmount)
 
-founder -> app: AttachDecision(dec)
-activate app
-app -> app: Decision = dec
-app -> app: Status = "Решение принято"
-app --> founder
-deactivate app
+activate FundHolder
 
-founder -> founder: Console.WriteLine($"Держатель фонда {Fio} принял решение '{result}'...")
-founder --> service
-deactivate founder
+' 4. FundHolder создаёт доменный объект решения
+FundHolder -> Dec : <<create>>\nnew GrantDecision()
+activate Dec
+Dec --> FundHolder : decision
+deactivate Dec
 
-service --> program
-deactivate service
+' 5. FundHolder прикрепляет решение к заявке
+FundHolder -> App : AttachDecision(decision)
+activate App
+App --> FundHolder : статус = \"Решение принято\"
+deactivate App
 
-deactivate program
+FundHolder --> Service : void
+deactivate FundHolder
+
+' 6. Сервис сообщает UI об успешном завершении
+Service --> Program : ok
+Program --> FH : показать результат\n(решение принято)
 
 @enduml
