@@ -1,0 +1,44 @@
+@startuml
+title Последовательность: принятие решения держателем фонда
+
+' Актёр - реальный пользователь (человек)
+actor "Fund holder\n(пользователь)" as FH
+
+' Системные участники
+participant "Program\n(UI Layer)" as Program
+participant "GrantSystemService\n(Application Layer)" as Service
+participant "FundHolder\n(класс домена)" as FundHolder
+participant "Application\n(домен)" as App
+participant "GrantDecision\n(домен)" as Dec
+
+' 1. Пользователь-держатель фонда инициирует операцию
+FH -> Program : выбрать заявку и ввести\nresult, grantAmount
+
+' 2. UI вызывает приложение-сервис
+Program -> Service : MakeDecision(app, fundHolder, result, grantAmount)
+
+' 3. Application Layer делегирует доменному объекту FundHolder
+Service -> FundHolder : MakeDecision(app, result, grantAmount)
+
+activate FundHolder
+
+' 4. FundHolder создаёт доменный объект решения
+FundHolder -> Dec : <<create>>\nnew GrantDecision()
+activate Dec
+Dec --> FundHolder : decision
+deactivate Dec
+
+' 5. FundHolder прикрепляет решение к заявке
+FundHolder -> App : AttachDecision(decision)
+activate App
+App --> FundHolder : статус = \"Решение принято\"
+deactivate App
+
+FundHolder --> Service : void
+deactivate FundHolder
+
+' 6. Сервис сообщает UI об успешном завершении
+Service --> Program : ok
+Program --> FH : показать результат\n(решение принято)
+
+@enduml
