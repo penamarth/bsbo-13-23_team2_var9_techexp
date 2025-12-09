@@ -1,4 +1,4 @@
-Операция: ArchiveApplication(applicant: Applicant, data: ApplicationData) : Application
+Операция: SubmitApplication(applicant: Applicant, data: ApplicationData) : Application
 
 Ссылки: Прецеденты: Подача заявки соискателем
 
